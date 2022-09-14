@@ -25,8 +25,7 @@
 		<Author>Arlo Godfrey</Author>
 		<Version>0.0.0</Version>
 		<Product>OwlCore</Product>
-		<Description>Provides a Windows.Storage implementation of the OwlCore.Storage APIs.
-    </Description>
+		<Description>Provides a Windows.Storage implementation of the OwlCore.Storage APIs.</Description>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
 		<PackageIcon>logo.png</PackageIcon>
 		<PackageReleaseNotes>
