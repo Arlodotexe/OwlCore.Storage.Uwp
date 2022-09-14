@@ -1,0 +1,31 @@
+name: Publish to Nuget
+
+on:
+  push:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+
+    - name: Add msbuild to PATH
+      uses: microsoft/setup-msbuild@v1.0.3
+
+    - name: MSBuild
+      run: msbuild.exe /r -p:Configuration=Release
+
+    - name: Run tests
+      run:  vstest.console.exe ./tests/**/*.build.appxrecipe /Framework:FrameworkUap10 /logger:"trx;LogFileName=UWP.trx"
+
+    - name: Publish to NuGet
+      run: dotnet nuget push "/home/runner/work/OwlCore.Storage.Uwp/OwlCore.Storage.Uwp/src/bin/Release/OwlCore.Storage.Uwp.*.*.*.nupkg" --skip-duplicate --api-key ${{secrets.NUGET_KEY}} --source https://api.nuget.org/v3/index.json

@@ -1,0 +1,76 @@
+<Project Sdk="MSBuild.Sdk.Extras/3.0.23">
+  <!--
+	Adding project references to this project requires some manual adjustments.
+	Please see https://github.com/unoplatform/uno/issues/3909 for more details.
+	-->
+  <PropertyGroup>
+    <TargetFrameworks>uap10.0.18362;netstandard2.0;xamarinios10;xamarinmac20;MonoAndroid11.0;MonoAndroid12.0</TargetFrameworks>
+    <!-- Ensures the .xr.xml files are generated in a proper layout folder -->
+    <GenerateLibraryLayout>true</GenerateLibraryLayout>
+  </PropertyGroup>
+
+  <PropertyGroup>
+		<Nullable>enable</Nullable>
+		<LangVersion>10.0</LangVersion>
+		<WarningsAsErrors>nullable</WarningsAsErrors>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<IncludeSymbols>true</IncludeSymbols>
+
+		<!-- Include symbol files (*.pdb) in the built .nupkg -->
+		<AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+
+		<Author>Arlo Godfrey</Author>
+		<Version>0.0.0</Version>
+		<Product>OwlCore</Product>
+		<Description>Provides a Windows.Storage implementation of the OwlCore.Storage APIs.
+    </Description>
+		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<PackageIcon>logo.png</PackageIcon>
+		<PackageReleaseNotes>
+--- 0.0.0 ---
+[New]
+Initial release of OwlCore.Storage.Uwp.
+		</PackageReleaseNotes>
+		<DebugType>embedded</DebugType>
+		<NeutralLanguage>en</NeutralLanguage>
+		<Authors>Arlo Godfrey</Authors>
+	</PropertyGroup>
+
+	<ItemGroup>
+    	<PackageReference Include="OwlCore.Storage" Version="0.5.0" />
+    	<PackageReference Include="Uno.UI" Version="4.5.9" />
+		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="6.0.0" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
+		<PackageReference Include="System.Linq.Async" Version="6.0.1" />
+	</ItemGroup>
+
+  <ItemGroup>
+    <Page Include="**\*.xaml" Exclude="bin\**\*.xaml;obj\**\*.xaml" />
+    <Compile Update="**\*.xaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+    
+    <UpToDateCheckInput Include="**\*.xaml" Exclude="bin\**\*.xaml;obj\**\*.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="logo.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="logo.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </Content>
+  </ItemGroup>
+
+	<ItemGroup>
+		<None Include="LICENSE.txt">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
+</Project>
