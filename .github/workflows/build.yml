@@ -22,6 +22,13 @@ jobs:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.0.3
 
+      # Restore Tools from Manifest list in the Repository
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
+      - name: Run Uno Check to Install Dependencies
+        run: dotnet tool run uno-check --ci --fix --non-interactive --skip wsl --skip androidemulator --verbose
+
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout Repository
         uses: actions/checkout@v2
