@@ -21,6 +21,11 @@ jobs:
     steps:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.0.3
+        
+      - name: Install .NET 6 SDK
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '6.0.202'
 
       # Restore Tools from Manifest list in the Repository
       - name: Restore dotnet tools
