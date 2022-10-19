@@ -112,7 +112,7 @@ namespace OwlCore.Storage.Uwp
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (StorageFolder is IStorageItem2 folder)
+            if (StorageFolder is StorageFolder folder)
                 return new WindowsStorageFolder(await folder.GetParentAsync());
 
             throw new NotSupportedException($"{nameof(GetParentAsync)} is only supported when the provided {nameof(IStorageFile)} implementation also implements {nameof(IStorageItem2)}.");
