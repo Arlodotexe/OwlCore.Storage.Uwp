@@ -30,7 +30,10 @@ jobs:
       uses: microsoft/setup-msbuild@v1.0.3
       
     - name: MSBuild
-      run: msbuild.exe /r -p:Configuration=Release
+      run: msbuild.exe /r -p:Configuration=Release -p:DebugType=Portable ./src/
+      
+    - name: MSBuild Pack
+      run: msbuild.exe -t:pack -p:Configuration=Release -p:DebugType=Portable ./src/
 
     - name: Setup VSTest Path
       uses: darenm/Setup-VSTest@v1
