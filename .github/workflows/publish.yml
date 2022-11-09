@@ -39,7 +39,7 @@ jobs:
       uses: darenm/Setup-VSTest@v1
 
     - name: Run tests
-      run:  vstest.console.exe ./tests/**/*.build.appxrecipe /Framework:FrameworkUap10 /logger:"trx;LogFileName=UWP.trx"
+      run:  vstest.console.exe ./tests/**/*.appxrecipe /Framework:FrameworkUap10 /logger:"trx;LogFileName=UWP.trx"
 
     - name: Publish to NuGet
       run: dotnet nuget push "/home/runner/work/OwlCore.Storage.Uwp/OwlCore.Storage.Uwp/src/bin/Release/OwlCore.Storage.Uwp.*.*.*.nupkg" --skip-duplicate --api-key ${{secrets.NUGET_KEY}} --source https://api.nuget.org/v3/index.json
