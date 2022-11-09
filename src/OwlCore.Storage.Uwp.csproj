@@ -6,7 +6,6 @@
   <PropertyGroup>
     <TargetFrameworks>uap10.0.17763;netstandard2.0;xamarinios10;xamarinmac20;MonoAndroid11.0;MonoAndroid12.0</TargetFrameworks>
     <!-- Ensures the .xr.xml files are generated in a proper layout folder -->
-    <GenerateLibraryLayout>true</GenerateLibraryLayout>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -32,6 +31,7 @@
 --- 0.0.1 ---
 [Fix]
 Uno.UI is no longer a dependency when running under native UWP.
+Fixed an issue with UWP targeting.
 
 --- 0.0.0 ---
 [New]
@@ -40,11 +40,14 @@ Initial release of OwlCore.Storage.Uwp.
     <DebugType>embedded</DebugType>
     <NeutralLanguage>en</NeutralLanguage>
     <Authors>Arlo Godfrey</Authors>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="OwlCore.Storage" Version="0.5.0" />
+    <PackageReference Include="OwlCore.Storage" Version="0.5.1" />
     <PackageReference Condition="'$(TargetFramework)' != 'uap10.0.17763'" Include="Uno.UI" Version="4.5.9" />
+    <PackageReference Condition="'$(TargetFramework)' == 'uap10.0.17763'" Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="6.0.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
