@@ -10,7 +10,7 @@ using Windows.Storage.Search;
 namespace OwlCore.Storage.Uwp
 {
     /// <summary>
-    /// A <see cref="FolderWatcher"/> implementation for <see cref="WindowsStorageFolder"/>.
+    /// An <see cref="IFolderWatcher"/> implementation for <see cref="WindowsStorageFolder"/>.
     /// </summary>
     public class WindowsStorageFolderWatcher : IFolderWatcher
     {

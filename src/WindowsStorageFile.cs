@@ -9,7 +9,7 @@ namespace OwlCore.Storage.Uwp
     /// <summary>
     /// An implementation of <see cref="IFile"/> for <see cref="Windows.Storage.StorageFile"/>.
     /// </summary>
-    public class WindowsStorageFile : IFile, IAddressableFile
+    public class WindowsStorageFile : IFile, IChildFile
     {
         /// <summary>
         /// Creates a new instance of <see cref="WindowsStorageFile"/>.
@@ -22,7 +22,7 @@ namespace OwlCore.Storage.Uwp
         /// <summary>
         /// The file being wrapped.
         /// </summary>
-        internal IStorageFile StorageFile { get; }
+        public IStorageFile StorageFile { get; }
 
         /// <inheritdoc/>
         public string Id => Path;
@@ -30,9 +30,12 @@ namespace OwlCore.Storage.Uwp
         /// <inheritdoc/>
         public string Name => StorageFile.Name;
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// The system path to the file.
+        /// </summary>
         public string Path => StorageFile.Path;
 
+        /// <inheritdoc/>
         public async Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

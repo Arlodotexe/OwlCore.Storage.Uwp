@@ -13,7 +13,16 @@ namespace OwlCore.Storage.Uwp
     /// <summary>
     /// An implementation of <see cref="IFolder"/> for <see cref="Windows.Storage.StorageFolder"/>.
     /// </summary>
-    public class WindowsStorageFolder : IFolder, IAddressableFolder, IFolderCanFastGetItem, IModifiableFolder
+    public class WindowsStorageFolder :
+        IModifiableFolder,
+        IChildFolder,
+        IFastGetItem,
+        IFastGetFirstByName,
+        IFastGetItemRecursive,
+        IFastFileMove<WindowsStorageFile>,
+        IFastFileCopy<WindowsStorageFile>,
+        IFastFileMove<SystemFile>,
+        IFastFileCopy<SystemFile>
     {
         /// <summary>
         /// Creates a new instance of <see cref="WindowsStorageFolder"/>.
@@ -26,9 +35,11 @@ namespace OwlCore.Storage.Uwp
         /// <summary>
         /// The folder being wrapped.
         /// </summary>
-        internal IStorageFolder StorageFolder { get; }
+        public IStorageFolder StorageFolder { get; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// The system path to the folder.
+        /// </summary>
         public string Path => StorageFolder.Path;
 
         /// <inheritdoc/>
@@ -38,7 +49,7 @@ namespace OwlCore.Storage.Uwp
         public string Name => StorageFolder.Name;
 
         /// <inheritdoc/>
-        public async Task<IAddressableStorable> GetItemAsync(string id, CancellationToken cancellationToken = default)
+        public async Task<IStorableChild> GetItemAsync(string id, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -59,7 +70,7 @@ namespace OwlCore.Storage.Uwp
         }
 
         /// <inheritdoc/>
-        public async IAsyncEnumerable<IAddressableStorable> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -86,7 +97,7 @@ namespace OwlCore.Storage.Uwp
 
             if (type.HasFlag(StorableType.Folder))
             {
-                var folders = await StorageFolder.GetFoldersAsync().AsTask();
+                var folders = await StorageFolder.GetFoldersAsync().AsTask(cancellationToken);
 
                 foreach (var folder in folders)
                 {
@@ -97,7 +108,7 @@ namespace OwlCore.Storage.Uwp
 
             if (type.HasFlag(StorableType.File))
             {
-                var files = await StorageFolder.GetFilesAsync().AsTask();
+                var files = await StorageFolder.GetFilesAsync().AsTask(cancellationToken);
 
                 foreach (var file in files)
                 {
@@ -105,6 +116,55 @@ namespace OwlCore.Storage.Uwp
                     yield return new WindowsStorageFile(file);
                 }
             }
+        }
+
+        /// <inheritdoc/>
+        public async Task<IStorableChild> GetItemRecursiveAsync(string id, CancellationToken cancellationToken = default)
+        {
+            // We use the Path as the ID.
+            if (!id.Contains(Id))
+                throw new FileNotFoundException($"The item {id} was not found in the folder {Id}");
+
+            // Will throw normally if we haven't been granted access to the file.
+            // Windows.Storage doesn't seem to have a single method for retrieving a folder OR file from an arbitrary path
+            // So we're forced to try / catch both options.
+
+            // As a folder
+            try
+            {
+                var folder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(id).AsTask(cancellationToken);
+                return new WindowsStorageFolder(folder);
+            }
+            catch (FileNotFoundException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            // As a file
+            try
+            {
+                var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(id).AsTask(cancellationToken);
+                return new WindowsStorageFile(file);
+            }
+            catch
+            {
+                throw new FileNotFoundException(@$"This folder ""{Id}"" could not retrieve expected descendent folder ""{id}"".");
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task<IStorableChild> GetFirstByNameAsync(string name, CancellationToken cancellationToken = default)
+        {
+            var item = await StorageFolder.GetItemAsync(name);
+
+            return item switch
+            {
+                IStorageFile sf => new WindowsStorageFile(sf),
+                IStorageFolder sfo => new WindowsStorageFolder(sfo),
+                _ => throw new NotSupportedException($"{item.GetType()} not supported here."),
+            };
         }
 
         /// <inheritdoc/>
@@ -119,59 +179,47 @@ namespace OwlCore.Storage.Uwp
         }
 
         /// <inheritdoc/>
-        public async Task<IAddressableFile> CreateCopyOfAsync(IFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
+        public async Task<IChildFile> CreateCopyOfAsync(WindowsStorageFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Use provided platform methods where possible.
-            if (fileToCopy is WindowsStorageFile windowsFile)
-            {
-                var storageFile = await windowsFile.StorageFile.CopyAsync(StorageFolder, desiredNewName: fileToCopy.Name, option: overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
-                return new WindowsStorageFile(storageFile);
-            }
-            else if (fileToCopy is SystemFile systemFile)
-            {
-                var storageFile = await StorageFile.GetFileFromPathAsync(systemFile.Path);
-                return await CreateCopyOfAsync(new WindowsStorageFile(storageFile), overwrite, cancellationToken);
-            }
-            else
-            {
-                // Manual file copy. Slower, but covers all other scenarios.
-                using var sourceStream = await fileToCopy.OpenStreamAsync(cancellationToken: cancellationToken);
-
-                if (sourceStream.CanSeek)
-                    sourceStream.Seek(0, SeekOrigin.Begin);
-
-                var storageFile = await StorageFolder.CreateFileAsync(fileToCopy.Name);
-                using var destinationStream = await storageFile.OpenStreamForWriteAsync();
-
-                await sourceStream.CopyToAsync(destinationStream, bufferSize: 81920, cancellationToken);
-
-                return new WindowsStorageFile(storageFile);
-            }
+            var storageFile = await fileToCopy.StorageFile.CopyAsync(StorageFolder, desiredNewName: fileToCopy.Name, option: overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
+            return new WindowsStorageFile(storageFile);
         }
 
         /// <inheritdoc/>
-        public async Task<IAddressableFile> MoveFromAsync(IAddressableFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
+        public async Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Use provided system methods where possible.
-            if (fileToMove is WindowsStorageFile storageFile)
-            {
-                await storageFile.StorageFile.MoveAsync(StorageFolder);
-                return fileToMove;
-            }
+            await fileToMove.StorageFile.MoveAsync(StorageFolder, fileToMove.Name, overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
+            return fileToMove;
+        }
 
-            // Manual move. Slower, but covers all other scenarios.
-            var newFile = await CreateCopyOfAsync(fileToMove, overwrite, cancellationToken);
-            await source.DeleteAsync(fileToMove, cancellationToken);
+        public async Task<IChildFile> MoveFromAsync(SystemFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
 
-            return newFile;
+            // Will throw normally if we haven't been granted access to the file.
+            var storageFile = await StorageFile.GetFileFromPathAsync(fileToMove.Path);
+            var file = new WindowsStorageFile(storageFile);
+
+            return await MoveFromAsync(file, source, overwrite, cancellationToken);
+        }
+
+        public async Task<IChildFile> CreateCopyOfAsync(SystemFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Will throw normally if we haven't been granted access to the file.
+            var storageFile = await StorageFile.GetFileFromPathAsync(fileToCopy.Path);
+            var file = new WindowsStorageFile(storageFile);
+
+            return await CreateCopyOfAsync(file, overwrite, cancellationToken);
         }
 
         /// <inheritdoc/>
-        public async Task<IAddressableFile> CreateFileAsync(string name, bool overwrite = false, CancellationToken cancellationToken = default)
+        public async Task<IChildFile> CreateFileAsync(string name, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var storageFile = await StorageFolder.CreateFileAsync(name, overwrite ? CreationCollisionOption.ReplaceExisting : CreationCollisionOption.OpenIfExists);
@@ -180,7 +228,7 @@ namespace OwlCore.Storage.Uwp
         }
 
         /// <inheritdoc/>
-        public async Task<IAddressableFolder> CreateFolderAsync(string name, bool overwrite = false, CancellationToken cancellationToken = default)
+        public async Task<IChildFolder> CreateFolderAsync(string name, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var storageFolder = await StorageFolder.CreateFolderAsync(name, overwrite ? CreationCollisionOption.ReplaceExisting : CreationCollisionOption.OpenIfExists);
@@ -189,7 +237,7 @@ namespace OwlCore.Storage.Uwp
         }
 
         /// <inheritdoc/>
-        public async Task DeleteAsync(IAddressableStorable item, CancellationToken cancellationToken = default)
+        public async Task DeleteAsync(IStorableChild item, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var parent = await item.GetParentAsync(cancellationToken);

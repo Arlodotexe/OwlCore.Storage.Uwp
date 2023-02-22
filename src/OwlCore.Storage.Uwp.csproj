@@ -1,10 +1,10 @@
-<Project Sdk="MSBuild.Sdk.Extras/3.0.23">
+﻿<Project Sdk="MSBuild.Sdk.Extras/3.0.23">
   <!--
 	Adding project references to this project requires some manual adjustments.
 	Please see https://github.com/unoplatform/uno/issues/3909 for more details.
 	-->
   <PropertyGroup>
-    <TargetFrameworks>uap10.0.17763;netstandard2.0;xamarinios10;xamarinmac20;MonoAndroid11.0;MonoAndroid12.0</TargetFrameworks>
+    <TargetFrameworks>uap10.0.17763;netstandard2.0;xamarinios10;xamarinmac20;MonoAndroid12.0</TargetFrameworks>
     <!-- Ensures the .xr.xml files are generated in a proper layout folder -->
   </PropertyGroup>
 
@@ -22,12 +22,17 @@
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
 
     <Author>Arlo Godfrey</Author>
-    <Version>0.0.1</Version>
+    <Version>0.1.0</Version>
     <Product>OwlCore</Product>
     <Description>Provides a Windows.Storage implementation of the OwlCore.Storage APIs.</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>logo.png</PackageIcon>
     <PackageReleaseNotes>
+--- 0.1.0 ---
+[Breaking]
+Updated to OwlCore.Storage 0.8.0.
+Inherited and implemented breaking changes and new features for storage interfaces.
+
 --- 0.0.1 ---
 [Fix]
 Uno.UI is no longer a dependency when running under native UWP.
@@ -42,13 +47,16 @@ Initial release of OwlCore.Storage.Uwp.
     <Authors>Arlo Godfrey</Authors>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
+
+    <DefineConstants Condition="'$(TargetFramework)' == 'uap10.0.17763'">$(DefineConstants);WINDOWS_UWP</DefineConstants>
+    <DefineConstants Condition="'$(TargetFramework)' != 'uap10.0.17763'">$(DefineConstants);UNO_PLATFORM</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="OwlCore.Storage" Version="0.5.1" />
-    <PackageReference Condition="'$(TargetFramework)' != 'uap10.0.17763'" Include="Uno.UI" Version="4.5.9" />
+    <PackageReference Include="OwlCore.Storage" Version="0.8.0" />
+    <PackageReference Condition="'$(TargetFramework)' != 'uap10.0.17763'" Include="Uno.UI" Version="4.6.39" />
     <PackageReference Condition="'$(TargetFramework)' == 'uap10.0.17763'" Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="7.0.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
   </ItemGroup>

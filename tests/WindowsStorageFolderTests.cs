@@ -7,9 +7,10 @@ using Windows.Storage;
 namespace OwlCore.Storage.Uwp.Tests
 {
     [TestClass]
-    public class WindowsStorageFolderTests : CommonIFolderTests
+    public class WindowsStorageFolderTests : IModifiableFolderTests
     {
-        public override async Task<IFolder> CreateFolderAsync()
+
+        public override async Task<IModifiableFolder> CreateModifiableFolderAsync()
         {
             var folder = ApplicationData.Current.TemporaryFolder;
             var newFolder = await folder.CreateFolderAsync("test", CreationCollisionOption.GenerateUniqueName).AsTask();
@@ -17,7 +18,7 @@ namespace OwlCore.Storage.Uwp.Tests
             return new WindowsStorageFolder(newFolder);
         }
 
-        public override async Task<IFolder> CreateFolderWithItems(int fileCount, int folderCount)
+        public override async Task<IModifiableFolder> CreateModifiableFolderWithItems(int fileCount, int folderCount)
         {
             var tempFolder = ApplicationData.Current.TemporaryFolder;
             var newFolder = await tempFolder.CreateFolderAsync("test", CreationCollisionOption.GenerateUniqueName).AsTask();
