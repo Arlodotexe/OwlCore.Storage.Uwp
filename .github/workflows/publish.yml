@@ -48,4 +48,4 @@ jobs:
       run: ls ./src/bin/Release/
 
     - name: Publish to NuGet
-      run: dotnet nuget push "./src/bin/Release/OwlCore.Storage.Uwp.*.*.*.nupkg" --skip-duplicate --api-key ${{secrets.NUGET_KEY}} --source https://api.nuget.org/v3/index.json
+      run: dotnet nuget push "**/Release/OwlCore.Storage.Uwp.*.nupkg" --skip-duplicate --api-key ${{secrets.NUGET_KEY}} --source https://api.nuget.org/v3/index.json
