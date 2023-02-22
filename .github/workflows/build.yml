@@ -39,7 +39,7 @@ jobs:
         uses: microsoft/setup-msbuild@v1.0.3
 
       - name: MSBuild
-        run: msbuild.exe /r -p:Configuration=Release
+        run: msbuild.exe /r
 
       - name: Setup VSTest Path
         uses: darenm/Setup-VSTest@v1
