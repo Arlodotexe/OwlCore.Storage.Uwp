@@ -7,7 +7,7 @@ using Windows.Storage;
 namespace OwlCore.Storage.Uwp.Tests
 {
     [TestClass]
-    public class WindowsStorageFolderTests : IModifiableFolderTests
+    public class WindowsStorageFolderTests : CommonIModifiableFolderTests
     {
 
         public override async Task<IModifiableFolder> CreateModifiableFolderAsync()

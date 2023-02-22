@@ -1,8 +1,11 @@
 ﻿
 using System;
+using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OwlCore.Storage.CommonTests;
+using OwlCore.Storage.Memory;
 using Windows.Storage;
 
 namespace OwlCore.Storage.Uwp.Tests
@@ -12,10 +15,31 @@ namespace OwlCore.Storage.Uwp.Tests
     {
         public override async Task<IFile> CreateFileAsync()
         {
-            var folder = ApplicationData.Current.TemporaryFolder;
-            var file = await folder.CreateFileAsync("test", CreationCollisionOption.GenerateUniqueName);
+            var folder = new WindowsStorageFolder(ApplicationData.Current.TemporaryFolder);
+            var randomDataFile = await CreateFileWithRandomDataAsync();
 
-            return new WindowsStorageFile(file);
+            return await folder.CreateCopyOfAsync(randomDataFile);
+        }
+
+        async Task<MemoryFile> CreateFileWithRandomDataAsync()
+        {
+            var randomData = GenerateRandomData(256_000);
+            using var tempStr = new MemoryStream(randomData);
+            
+            var memoryStream = new MemoryStream();
+            await tempStr.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+            
+            return new MemoryFile(memoryStream);
+
+            static byte[] GenerateRandomData(int length)
+            {
+                var rand = new Random();
+                var b = new byte[length];
+                rand.NextBytes(b);
+
+                return b;
+            }
         }
     }
 }

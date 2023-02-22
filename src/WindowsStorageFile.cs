@@ -47,15 +47,21 @@ namespace OwlCore.Storage.Uwp
         }
 
         /// <inheritdoc/>
-        public Task<Stream> OpenStreamAsync(FileAccess accessMode = FileAccess.Read, CancellationToken cancellationToken = default)
+        public async Task<Stream> OpenStreamAsync(FileAccess accessMode = FileAccess.Read, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (accessMode.HasFlag(FileAccess.Write) && accessMode.HasFlag(FileAccess.Read))
+            {
+                var randomAccessStream = await StorageFile.OpenAsync(FileAccessMode.ReadWrite).AsTask(cancellationToken);
+                return randomAccessStream.AsStream();
+            }
+
             if (accessMode.HasFlag(FileAccess.Write))
-                return StorageFile.OpenStreamForWriteAsync();
+                return await StorageFile.OpenStreamForWriteAsync();
 
             if (accessMode.HasFlag(FileAccess.Read))
-                return StorageFile.OpenStreamForReadAsync();
+                return await StorageFile.OpenStreamForReadAsync();
 
             throw new ArgumentOutOfRangeException(paramName: nameof(accessMode), message: $"{accessMode} cannot be used here.");
         }

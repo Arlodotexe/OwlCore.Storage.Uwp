@@ -183,7 +183,24 @@ namespace OwlCore.Storage.Uwp
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (!overwrite)
+            {
+                try
+                {
+                    var existingItem = await GetFirstByNameAsync(fileToCopy.Name, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (existingItem is IChildFile childFile)
+                        return childFile;
+                }
+                catch (FileNotFoundException)
+                {
+                }
+            }
+
             var storageFile = await fileToCopy.StorageFile.CopyAsync(StorageFolder, desiredNewName: fileToCopy.Name, option: overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
+            cancellationToken.ThrowIfCancellationRequested();
+            
             return new WindowsStorageFile(storageFile);
         }
 
@@ -191,6 +208,21 @@ namespace OwlCore.Storage.Uwp
         public async Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (!overwrite)
+            {
+                try
+                {
+                    var existingItem = await GetFirstByNameAsync(fileToMove.Name, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (existingItem is IChildFile childFile)
+                        return childFile;
+                }
+                catch (FileNotFoundException)
+                {
+                }
+            }
 
             await fileToMove.StorageFile.MoveAsync(StorageFolder, fileToMove.Name, overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
             return fileToMove;
