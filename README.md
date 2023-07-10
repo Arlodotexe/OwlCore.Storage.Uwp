@@ -16,7 +16,6 @@ Or using [dotnet](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet)
 
 
 ### Folders
-For folders, we've implemented `IFile` and `IAddressableFile` as `WindowsStorageFile`.
 
 ```cs
 // Get the StorageFolder
@@ -27,7 +26,6 @@ var folder = new WindowsStorageFolder(storageFolder);
 ```
 
 ### Files
-For files, we've implemented `IFolder`, `IAddressableFolder`, `IFolderCanFastGetItem`, and `IModifiableFolder`.
 
 ```cs
 // Get the StorageFile
