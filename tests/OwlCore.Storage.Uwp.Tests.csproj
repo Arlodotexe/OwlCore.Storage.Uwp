@@ -153,13 +153,16 @@
       <Version>6.2.14</Version>
     </PackageReference>
     <PackageReference Include="MSTest.TestAdapter">
-      <Version>2.2.7</Version>
+      <Version>3.2.2</Version>
     </PackageReference>
     <PackageReference Include="MSTest.TestFramework">
-      <Version>2.2.7</Version>
+      <Version>3.2.2</Version>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>13.0.3</Version>
     </PackageReference>
     <PackageReference Include="OwlCore.Storage.CommonTests">
-      <Version>0.4.0</Version>
+      <Version>0.5.0</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
