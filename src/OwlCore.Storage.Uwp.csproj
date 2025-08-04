@@ -4,7 +4,7 @@
 	Please see https://github.com/unoplatform/uno/issues/3909 for more details.
 	-->
   <PropertyGroup>
-    <TargetFrameworks>uap10.0.17763; net7.0; net7.0-ios; net7.0-maccatalyst; net7.0-android33.0;</TargetFrameworks>
+    <TargetFrameworks>uap10.0.17763; net9.0; net9.0-ios; net9.0-maccatalyst; net9.0-android35.0;</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -21,12 +21,17 @@
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
 
     <Author>Arlo Godfrey</Author>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <Product>OwlCore</Product>
     <Description>Provides a Windows.Storage implementation of the OwlCore.Storage APIs.</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>logo.png</PackageIcon>
     <PackageReleaseNotes>
+--- 0.2.1 ---
+[Improvements]
+Updated OwlCore.Storage to 0.13.0, implemented ICreateRenamedCopyOf, IMoveRenamedFrom in WindowsStorageFolder.
+Update to net9.0* for Uno TFMs.
+
 --- 0.2.0 ---
 [Breaking]
 Updated to OwlCore.Storage 0.10.0. Inherited and implemented breaking changes and new features for storage interfaces.
@@ -56,8 +61,8 @@ Initial release of OwlCore.Storage.Uwp.
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="OwlCore.Storage" Version="0.10.0" />
-    <PackageReference Condition="'$(TargetFramework)' != 'uap10.0.17763'" Include="Uno.UI" Version="5.1.87" />
+    <PackageReference Include="OwlCore.Storage" Version="0.13.0" />
+    <PackageReference Condition="'$(TargetFramework)' != 'uap10.0.17763'" Include="Uno.UI" Version="5.6.99" />
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />

@@ -20,7 +20,9 @@ namespace OwlCore.Storage.Uwp
         IGetFirstByName,
         IGetItemRecursive,
         IMoveFrom,
-        ICreateCopyOf
+        ICreateCopyOf,
+        ICreateRenamedCopyOf,
+        IMoveRenamedFrom
     {
         /// <summary>
         /// Creates a new instance of <see cref="WindowsStorageFolder"/>.
@@ -177,21 +179,39 @@ namespace OwlCore.Storage.Uwp
         }
 
         /// <inheritdoc/>
-        public async Task<IChildFile> CreateCopyOfAsync(IFile fileToCopy, bool overwrite, CancellationToken cancellationToken, CreateCopyOfDelegate fallback)
+        public Task<IChildFile> CreateCopyOfAsync(IFile fileToCopy, bool overwrite, CancellationToken cancellationToken, CreateCopyOfDelegate fallback)
+        {
+            // For code deduplication in this implementation,
+            // route to the overload with rename support
+            // while using the given non-rename overload as fallback.
+            // This also discards the filled newName param in the fallback, which is originally passed into the newName param in the following method call:
+            return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken, (modifiableFolder, file, overwrite, _, cancellationToken) => fallback(modifiableFolder, file, overwrite, cancellationToken));
+        }
+
+        /// <inheritdoc/>
+        public async Task<IChildFile> CreateCopyOfAsync(IFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken, CreateRenamedCopyOfDelegate fallback)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             if (fileToCopy is SystemFile systemFile)
-                return await CreateCopyOfAsync(systemFile, overwrite, cancellationToken);
+                return await CreateCopyOfAsync(systemFile, overwrite, newName, cancellationToken);
 
             if (fileToCopy is WindowsStorageFile windowsStorageFile)
-                return await CreateCopyOfAsync(windowsStorageFile, overwrite, cancellationToken);
+                return await CreateCopyOfAsync(windowsStorageFile, overwrite, newName, cancellationToken);
 
-            return await fallback(this, fileToCopy, overwrite, cancellationToken);
+            return await fallback(this, fileToCopy, overwrite, newName, cancellationToken);
         }
 
         /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, CancellationToken, CreateCopyOfDelegate)"/>
-        public async Task<IChildFile> CreateCopyOfAsync(SystemFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
+        public Task<IChildFile> CreateCopyOfAsync(SystemFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
+        {
+            // For code deduplication in this implementation,
+            // route to the overload with rename support
+            return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken);
+        }
+
+        /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, string, CancellationToken, CreateRenamedCopyOfDelegate)"/>
+        public async Task<IChildFile> CreateCopyOfAsync(SystemFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -199,11 +219,19 @@ namespace OwlCore.Storage.Uwp
             var storageFile = await StorageFile.GetFileFromPathAsync(fileToCopy.Path);
             var file = new WindowsStorageFile(storageFile);
 
-            return await CreateCopyOfAsync(file, overwrite, cancellationToken);
+            return await CreateCopyOfAsync(file, overwrite, newName, cancellationToken);
         }
 
         /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, CancellationToken, CreateCopyOfDelegate)"/>
-        public async Task<IChildFile> CreateCopyOfAsync(WindowsStorageFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
+        public Task<IChildFile> CreateCopyOfAsync(WindowsStorageFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
+        {
+            // For code deduplication in this implementation,
+            // route to the overload with rename support
+            return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken);
+        }
+
+        /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, string, CancellationToken, CreateRenamedCopyOfDelegate)"/>
+        public async Task<IChildFile> CreateCopyOfAsync(WindowsStorageFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -211,7 +239,7 @@ namespace OwlCore.Storage.Uwp
             {
                 try
                 {
-                    var existingItem = await GetFirstByNameAsync(fileToCopy.Name, cancellationToken);
+                    var existingItem = await GetFirstByNameAsync(newName, cancellationToken);
                     cancellationToken.ThrowIfCancellationRequested();
 
                     if (existingItem is IChildFile childFile)
@@ -222,25 +250,44 @@ namespace OwlCore.Storage.Uwp
                 }
             }
 
-            var storageFile = await fileToCopy.StorageFile.CopyAsync(StorageFolder, desiredNewName: fileToCopy.Name, option: overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
+            var storageFile = await fileToCopy.StorageFile.CopyAsync(StorageFolder, desiredNewName: newName, option: overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
             cancellationToken.ThrowIfCancellationRequested();
 
             return new WindowsStorageFile(storageFile);
         }
 
+        /// <inheritdoc/>
         public Task<IChildFile> MoveFromAsync(IChildFile fileToMove, IModifiableFolder source, bool overwrite, CancellationToken cancellationToken, MoveFromDelegate fallback)
         {
+            // For code deduplication in this implementation,
+            // route to the overload with rename support
+            // while using the given non-rename overload as fallback.
+            // This also discards the filled newName param in the fallback, which is originally passed into the newName param in the following method call:
+            return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken, (modifiableFolder, file, source, overwrite, _, cancellationToken) => fallback(modifiableFolder, file, source, overwrite, cancellationToken));
+        }
+
+        /// <inheritdoc/>
+        public Task<IChildFile> MoveFromAsync(IChildFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken, MoveRenamedFromDelegate fallback)
+        {
             if (fileToMove is SystemFile systemFile)
-                return MoveFromAsync(systemFile, source, overwrite, cancellationToken);
+                return MoveFromAsync(systemFile, source, overwrite, newName, cancellationToken);
 
             if (fileToMove is WindowsStorageFile windowsStorageFile)
-                return MoveFromAsync(windowsStorageFile, source, overwrite, cancellationToken);
+                return MoveFromAsync(windowsStorageFile, source, overwrite, newName, cancellationToken);
 
-            return fallback(this, fileToMove, source, overwrite, cancellationToken);
+            return fallback(this, fileToMove, source, overwrite, newName, cancellationToken);
         }
 
         /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, CancellationToken, MoveFromDelegate)"/>
-        public async Task<IChildFile> MoveFromAsync(SystemFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
+        public Task<IChildFile> MoveFromAsync(SystemFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
+        {
+            // For code deduplication in this implementation,
+            // route to the overload with rename support
+            return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken);
+        }
+
+        /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, string, CancellationToken, MoveRenamedFromDelegate)"/>
+        public async Task<IChildFile> MoveFromAsync(SystemFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -248,11 +295,19 @@ namespace OwlCore.Storage.Uwp
             var storageFile = await StorageFile.GetFileFromPathAsync(fileToMove.Path);
             var file = new WindowsStorageFile(storageFile);
 
-            return await MoveFromAsync(file, source, overwrite, cancellationToken);
+            return await MoveFromAsync(file, source, overwrite, newName, cancellationToken);
         }
 
         /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, CancellationToken, MoveFromDelegate)"/>
-        public async Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
+        public Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
+        {
+            // For code deduplication in this implementation,
+            // route to the overload with rename support
+            return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken);
+        }
+
+        /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, string, CancellationToken, MoveRenamedFromDelegate)"/>
+        public async Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -260,7 +315,7 @@ namespace OwlCore.Storage.Uwp
             {
                 try
                 {
-                    var existingItem = await GetFirstByNameAsync(fileToMove.Name, cancellationToken);
+                    var existingItem = await GetFirstByNameAsync(newName, cancellationToken);
                     cancellationToken.ThrowIfCancellationRequested();
 
                     if (existingItem is IChildFile childFile)
@@ -271,7 +326,7 @@ namespace OwlCore.Storage.Uwp
                 }
             }
 
-            await fileToMove.StorageFile.MoveAsync(StorageFolder, fileToMove.Name, overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
+            await fileToMove.StorageFile.MoveAsync(StorageFolder, newName, overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
             return fileToMove;
         }
 

@@ -14,7 +14,7 @@ jobs:
     - name: Install .NET SDK
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '8.0.x'
+        dotnet-version: '9.0.x'
 
     - name: Checkout Repository
       uses: actions/checkout@v2
@@ -24,10 +24,15 @@ jobs:
       run: dotnet tool restore
 
     - name: Run Uno Check to Install Dependencies
-      run: dotnet tool run uno-check --ci --fix --non-interactive --skip wsl --skip androidemulator --verbose
+      run: dotnet tool run uno-check --ci --fix --non-interactive --skip wsl --skip androidemulator --skip vswinworkloads --verbose
+
+    - name: Restore .NET workloads
+      run: dotnet workload restore ./src/OwlCore.Storage.Uwp.csproj
 
     - name: Add msbuild to PATH
-      uses: microsoft/setup-msbuild@v1.0.3
+      uses: microsoft/setup-msbuild@v2
+      with:
+        vs-version: '[17.9,)'
 
     - name: Setup VSTest Path
       uses: darenm/Setup-VSTest@v1
