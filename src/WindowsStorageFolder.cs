@@ -1,4 +1,4 @@
-﻿using OwlCore.Storage.System.IO;
+using OwlCore.Storage.System.IO;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,377 +8,410 @@ using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.Storage.Search;
 
-namespace OwlCore.Storage.Uwp
+namespace OwlCore.Storage.Uwp;
+
+/// <summary>
+/// An implementation of <see cref="IFolder"/> for <see cref="Windows.Storage.StorageFolder"/>.
+/// </summary>
+public class WindowsStorageFolder :
+    IModifiableFolder,
+    IChildFolder,
+    IGetItem,
+    IGetFirstByName,
+    IGetItemRecursive,
+    IMoveFrom,
+    ICreateCopyOf,
+    ICreateRenamedCopyOf,
+    IMoveRenamedFrom
+#if WINDOWS_UWP
+    , ICreatedAtOffset
+    , ILastModifiedAtOffset
+    , ILastAccessedAtOffset
+#endif
 {
+#if WINDOWS_UWP
+    private WindowsStorageCreatedAtProperty? _createdAt;
+    private WindowsStorageCreatedAtOffsetProperty? _createdAtOffset;
+    private WindowsStorageLastModifiedAtProperty? _lastModifiedAt;
+    private WindowsStorageLastModifiedAtOffsetProperty? _lastModifiedAtOffset;
+    private WindowsStorageLastAccessedAtProperty? _lastAccessedAt;
+    private WindowsStorageLastAccessedAtOffsetProperty? _lastAccessedAtOffset;
+#endif
+
     /// <summary>
-    /// An implementation of <see cref="IFolder"/> for <see cref="Windows.Storage.StorageFolder"/>.
+    /// Creates a new instance of <see cref="WindowsStorageFolder"/>.
     /// </summary>
-    public class WindowsStorageFolder :
-        IModifiableFolder,
-        IChildFolder,
-        IGetItem,
-        IGetFirstByName,
-        IGetItemRecursive,
-        IMoveFrom,
-        ICreateCopyOf,
-        ICreateRenamedCopyOf,
-        IMoveRenamedFrom
+    public WindowsStorageFolder(IStorageFolder storageFolder)
     {
-        /// <summary>
-        /// Creates a new instance of <see cref="WindowsStorageFolder"/>.
-        /// </summary>
-        public WindowsStorageFolder(IStorageFolder storageFolder)
+        StorageFolder = storageFolder;
+    }
+
+    /// <summary>
+    /// The folder being wrapped.
+    /// </summary>
+    public IStorageFolder StorageFolder { get; }
+
+    /// <summary>
+    /// The system path to the folder.
+    /// </summary>
+    public string Path => StorageFolder.Path;
+
+    /// <inheritdoc/>
+    public string Id => Path;
+
+    /// <inheritdoc/>
+    public string Name => StorageFolder.Name;
+
+#if WINDOWS_UWP
+    /// <inheritdoc/>
+    public ICreatedAtProperty CreatedAt => _createdAt ??= new WindowsStorageCreatedAtProperty(this, StorageFolder);
+
+    /// <inheritdoc/>
+    public ICreatedAtOffsetProperty CreatedAtOffset => _createdAtOffset ??= new WindowsStorageCreatedAtOffsetProperty(this, StorageFolder);
+
+    /// <inheritdoc/>
+    public ILastModifiedAtProperty LastModifiedAt => _lastModifiedAt ??= new WindowsStorageLastModifiedAtProperty(this, StorageFolder);
+
+    /// <inheritdoc/>
+    public ILastModifiedAtOffsetProperty LastModifiedAtOffset => _lastModifiedAtOffset ??= new WindowsStorageLastModifiedAtOffsetProperty(this, StorageFolder);
+
+    /// <inheritdoc/>
+    public ILastAccessedAtProperty LastAccessedAt => _lastAccessedAt ??= new WindowsStorageLastAccessedAtProperty(this, StorageFolder);
+
+    /// <inheritdoc/>
+    public ILastAccessedAtOffsetProperty LastAccessedAtOffset => _lastAccessedAtOffset ??= new WindowsStorageLastAccessedAtOffsetProperty(this, StorageFolder);
+#endif
+
+    /// <inheritdoc/>
+    public async Task<IStorableChild> GetItemAsync(string id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // We use paths as the ID. Extract the file name.
+        var fileName = global::System.IO.Path.GetFileName(id);
+
+        var item = await StorageFolder.GetItemAsync(fileName);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (item is IStorageFile file)
+            return new WindowsStorageFile(file);
+
+        if (item is IStorageFolder folder)
+            return new WindowsStorageFolder(folder);
+
+        throw new FileNotFoundException();
+    }
+
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (type == StorableType.None)
+            throw new ArgumentOutOfRangeException(nameof(type), $"{nameof(StorableType)}.{type} is not valid here.");
+
+        if (type.HasFlag(StorableType.All))
         {
-            StorageFolder = storageFolder;
-        }
+            var items = await StorageFolder.GetItemsAsync();
 
-        /// <summary>
-        /// The folder being wrapped.
-        /// </summary>
-        public IStorageFolder StorageFolder { get; }
-
-        /// <summary>
-        /// The system path to the folder.
-        /// </summary>
-        public string Path => StorageFolder.Path;
-
-        /// <inheritdoc/>
-        public string Id => Path;
-
-        /// <inheritdoc/>
-        public string Name => StorageFolder.Name;
-
-        /// <inheritdoc/>
-        public async Task<IStorableChild> GetItemAsync(string id, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // We use paths as the ID. Extract the file name.
-            var fileName = global::System.IO.Path.GetFileName(id);
-
-            var item = await StorageFolder.GetItemAsync(fileName);
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (item is IStorageFile file)
-                return new WindowsStorageFile(file);
-
-            if (item is IStorageFolder folder)
-                return new WindowsStorageFolder(folder);
-
-            throw new FileNotFoundException();
-        }
-
-        /// <inheritdoc/>
-        public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (type == StorableType.None)
-                throw new ArgumentOutOfRangeException(nameof(type), $"{nameof(StorableType)}.{type} is not valid here.");
-
-            if (type.HasFlag(StorableType.All))
+            foreach (var item in items)
             {
-                var items = await StorageFolder.GetItemsAsync();
+                cancellationToken.ThrowIfCancellationRequested();
 
-                foreach (var item in items)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    if (item is IStorageFolder folder)
-                        yield return new WindowsStorageFolder(folder);
-
-                    if (item is IStorageFile file)
-                        yield return new WindowsStorageFile(file);
-                }
-
-                yield break;
-            }
-
-            if (type.HasFlag(StorableType.Folder))
-            {
-                var folders = await StorageFolder.GetFoldersAsync().AsTask(cancellationToken);
-
-                foreach (var folder in folders)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
+                if (item is IStorageFolder folder)
                     yield return new WindowsStorageFolder(folder);
-                }
+
+                if (item is IStorageFile file)
+                    yield return new WindowsStorageFile(file);
             }
 
-            if (type.HasFlag(StorableType.File))
-            {
-                var files = await StorageFolder.GetFilesAsync().AsTask(cancellationToken);
+            yield break;
+        }
 
-                foreach (var file in files)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    yield return new WindowsStorageFile(file);
-                }
+        if (type.HasFlag(StorableType.Folder))
+        {
+            var folders = await StorageFolder.GetFoldersAsync().AsTask(cancellationToken);
+
+            foreach (var folder in folders)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return new WindowsStorageFolder(folder);
             }
         }
 
-        /// <inheritdoc/>
-        public async Task<IStorableChild> GetItemRecursiveAsync(string id, CancellationToken cancellationToken = default)
+        if (type.HasFlag(StorableType.File))
         {
-            // We use the Path as the ID.
-            if (!id.Contains(Id))
-                throw new FileNotFoundException($"The item {id} was not found in the folder {Id}");
+            var files = await StorageFolder.GetFilesAsync().AsTask(cancellationToken);
 
-            // Will throw normally if we haven't been granted access to the file.
-            // Windows.Storage doesn't seem to have a single method for retrieving a folder OR file from an arbitrary path
-            // So we're forced to try / catch both options.
+            foreach (var file in files)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return new WindowsStorageFile(file);
+            }
+        }
+    }
 
-            // As a folder
+    /// <inheritdoc/>
+    public async Task<IStorableChild> GetItemRecursiveAsync(string id, CancellationToken cancellationToken = default)
+    {
+        // We use the Path as the ID.
+        if (!id.Contains(Id))
+            throw new FileNotFoundException($"The item {id} was not found in the folder {Id}");
+
+        // Will throw normally if we haven't been granted access to the file.
+        // Windows.Storage doesn't seem to have a single method for retrieving a folder OR file from an arbitrary path
+        // So we're forced to try / catch both options.
+
+        // As a folder
+        try
+        {
+            var folder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(id).AsTask(cancellationToken);
+            return new WindowsStorageFolder(folder);
+        }
+        catch (FileNotFoundException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        // As a file
+        try
+        {
+            var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(id).AsTask(cancellationToken);
+            return new WindowsStorageFile(file);
+        }
+        catch
+        {
+            throw new FileNotFoundException(@$"This folder ""{Id}"" could not retrieve expected descendent folder ""{id}"".");
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<IStorableChild> GetFirstByNameAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var item = await StorageFolder.GetItemAsync(name);
+
+        return item switch
+        {
+            IStorageFile sf => new WindowsStorageFile(sf),
+            IStorageFolder sfo => new WindowsStorageFolder(sfo),
+            _ => throw new NotSupportedException($"{item.GetType()} not supported here."),
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (StorageFolder is StorageFolder folder)
+            return new WindowsStorageFolder(await folder.GetParentAsync());
+
+        throw new NotSupportedException($"{nameof(GetParentAsync)} is only supported when the provided {nameof(IStorageFile)} implementation also implements {nameof(IStorageItem2)}.");
+    }
+
+    /// <inheritdoc/>
+    public Task<IChildFile> CreateCopyOfAsync(IFile fileToCopy, bool overwrite, CancellationToken cancellationToken, CreateCopyOfDelegate fallback)
+    {
+        // For code deduplication in this implementation,
+        // route to the overload with rename support
+        // while using the given non-rename overload as fallback.
+        // This also discards the filled newName param in the fallback, which is originally passed into the newName param in the following method call:
+        return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken, (modifiableFolder, file, overwrite, _, cancellationToken) => fallback(modifiableFolder, file, overwrite, cancellationToken));
+    }
+
+    /// <inheritdoc/>
+    public async Task<IChildFile> CreateCopyOfAsync(IFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken, CreateRenamedCopyOfDelegate fallback)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (fileToCopy is SystemFile systemFile)
+            return await CreateCopyOfAsync(systemFile, overwrite, newName, cancellationToken);
+
+        if (fileToCopy is WindowsStorageFile windowsStorageFile)
+            return await CreateCopyOfAsync(windowsStorageFile, overwrite, newName, cancellationToken);
+
+        return await fallback(this, fileToCopy, overwrite, newName, cancellationToken);
+    }
+
+    /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, CancellationToken, CreateCopyOfDelegate)"/>
+    public Task<IChildFile> CreateCopyOfAsync(SystemFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        // For code deduplication in this implementation,
+        // route to the overload with rename support
+        return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken);
+    }
+
+    /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, string, CancellationToken, CreateRenamedCopyOfDelegate)"/>
+    public async Task<IChildFile> CreateCopyOfAsync(SystemFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Will throw normally if we haven't been granted access to the file.
+        var storageFile = await StorageFile.GetFileFromPathAsync(fileToCopy.Path);
+        var file = new WindowsStorageFile(storageFile);
+
+        return await CreateCopyOfAsync(file, overwrite, newName, cancellationToken);
+    }
+
+    /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, CancellationToken, CreateCopyOfDelegate)"/>
+    public Task<IChildFile> CreateCopyOfAsync(WindowsStorageFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        // For code deduplication in this implementation,
+        // route to the overload with rename support
+        return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken);
+    }
+
+    /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, string, CancellationToken, CreateRenamedCopyOfDelegate)"/>
+    public async Task<IChildFile> CreateCopyOfAsync(WindowsStorageFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!overwrite)
+        {
             try
             {
-                var folder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(id).AsTask(cancellationToken);
-                return new WindowsStorageFolder(folder);
+                var existingItem = await GetFirstByNameAsync(newName, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (existingItem is IChildFile childFile)
+                    throw new FileAlreadyExistsException(childFile.Name);
             }
             catch (FileNotFoundException)
             {
             }
-            catch (UnauthorizedAccessException)
-            {
-            }
+        }
 
-            // As a file
+        var storageFile = await fileToCopy.StorageFile.CopyAsync(StorageFolder, desiredNewName: newName, option: overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return new WindowsStorageFile(storageFile);
+    }
+
+    /// <inheritdoc/>
+    public Task<IChildFile> MoveFromAsync(IChildFile fileToMove, IModifiableFolder source, bool overwrite, CancellationToken cancellationToken, MoveFromDelegate fallback)
+    {
+        // For code deduplication in this implementation,
+        // route to the overload with rename support
+        // while using the given non-rename overload as fallback.
+        // This also discards the filled newName param in the fallback, which is originally passed into the newName param in the following method call:
+        return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken, (modifiableFolder, file, source, overwrite, _, cancellationToken) => fallback(modifiableFolder, file, source, overwrite, cancellationToken));
+    }
+
+    /// <inheritdoc/>
+    public Task<IChildFile> MoveFromAsync(IChildFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken, MoveRenamedFromDelegate fallback)
+    {
+        if (fileToMove is SystemFile systemFile)
+            return MoveFromAsync(systemFile, source, overwrite, newName, cancellationToken);
+
+        if (fileToMove is WindowsStorageFile windowsStorageFile)
+            return MoveFromAsync(windowsStorageFile, source, overwrite, newName, cancellationToken);
+
+        return fallback(this, fileToMove, source, overwrite, newName, cancellationToken);
+    }
+
+    /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, CancellationToken, MoveFromDelegate)"/>
+    public Task<IChildFile> MoveFromAsync(SystemFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        // For code deduplication in this implementation,
+        // route to the overload with rename support
+        return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken);
+    }
+
+    /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, string, CancellationToken, MoveRenamedFromDelegate)"/>
+    public async Task<IChildFile> MoveFromAsync(SystemFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Will throw normally if we haven't been granted access to the file.
+        var storageFile = await StorageFile.GetFileFromPathAsync(fileToMove.Path);
+        var file = new WindowsStorageFile(storageFile);
+
+        return await MoveFromAsync(file, source, overwrite, newName, cancellationToken);
+    }
+
+    /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, CancellationToken, MoveFromDelegate)"/>
+    public Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        // For code deduplication in this implementation,
+        // route to the overload with rename support
+        return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken);
+    }
+
+    /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, string, CancellationToken, MoveRenamedFromDelegate)"/>
+    public async Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!overwrite)
+        {
             try
             {
-                var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(id).AsTask(cancellationToken);
-                return new WindowsStorageFile(file);
-            }
-            catch
-            {
-                throw new FileNotFoundException(@$"This folder ""{Id}"" could not retrieve expected descendent folder ""{id}"".");
-            }
-        }
-
-        /// <inheritdoc/>
-        public async Task<IStorableChild> GetFirstByNameAsync(string name, CancellationToken cancellationToken = default)
-        {
-            var item = await StorageFolder.GetItemAsync(name);
-
-            return item switch
-            {
-                IStorageFile sf => new WindowsStorageFile(sf),
-                IStorageFolder sfo => new WindowsStorageFolder(sfo),
-                _ => throw new NotSupportedException($"{item.GetType()} not supported here."),
-            };
-        }
-
-        /// <inheritdoc/>
-        public async Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (StorageFolder is StorageFolder folder)
-                return new WindowsStorageFolder(await folder.GetParentAsync());
-
-            throw new NotSupportedException($"{nameof(GetParentAsync)} is only supported when the provided {nameof(IStorageFile)} implementation also implements {nameof(IStorageItem2)}.");
-        }
-
-        /// <inheritdoc/>
-        public Task<IChildFile> CreateCopyOfAsync(IFile fileToCopy, bool overwrite, CancellationToken cancellationToken, CreateCopyOfDelegate fallback)
-        {
-            // For code deduplication in this implementation,
-            // route to the overload with rename support
-            // while using the given non-rename overload as fallback.
-            // This also discards the filled newName param in the fallback, which is originally passed into the newName param in the following method call:
-            return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken, (modifiableFolder, file, overwrite, _, cancellationToken) => fallback(modifiableFolder, file, overwrite, cancellationToken));
-        }
-
-        /// <inheritdoc/>
-        public async Task<IChildFile> CreateCopyOfAsync(IFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken, CreateRenamedCopyOfDelegate fallback)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (fileToCopy is SystemFile systemFile)
-                return await CreateCopyOfAsync(systemFile, overwrite, newName, cancellationToken);
-
-            if (fileToCopy is WindowsStorageFile windowsStorageFile)
-                return await CreateCopyOfAsync(windowsStorageFile, overwrite, newName, cancellationToken);
-
-            return await fallback(this, fileToCopy, overwrite, newName, cancellationToken);
-        }
-
-        /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, CancellationToken, CreateCopyOfDelegate)"/>
-        public Task<IChildFile> CreateCopyOfAsync(SystemFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
-        {
-            // For code deduplication in this implementation,
-            // route to the overload with rename support
-            return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken);
-        }
-
-        /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, string, CancellationToken, CreateRenamedCopyOfDelegate)"/>
-        public async Task<IChildFile> CreateCopyOfAsync(SystemFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Will throw normally if we haven't been granted access to the file.
-            var storageFile = await StorageFile.GetFileFromPathAsync(fileToCopy.Path);
-            var file = new WindowsStorageFile(storageFile);
-
-            return await CreateCopyOfAsync(file, overwrite, newName, cancellationToken);
-        }
-
-        /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, CancellationToken, CreateCopyOfDelegate)"/>
-        public Task<IChildFile> CreateCopyOfAsync(WindowsStorageFile fileToCopy, bool overwrite = false, CancellationToken cancellationToken = default)
-        {
-            // For code deduplication in this implementation,
-            // route to the overload with rename support
-            return CreateCopyOfAsync(fileToCopy, overwrite, newName: fileToCopy.Name, cancellationToken);
-        }
-
-        /// <inheritdoc cref="CreateCopyOfAsync(IFile, bool, string, CancellationToken, CreateRenamedCopyOfDelegate)"/>
-        public async Task<IChildFile> CreateCopyOfAsync(WindowsStorageFile fileToCopy, bool overwrite, string newName, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (!overwrite)
-            {
-                try
-                {
-                    var existingItem = await GetFirstByNameAsync(newName, cancellationToken);
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    if (existingItem is IChildFile childFile)
-                        throw new FileAlreadyExistsException(childFile.Name);
-                }
-                catch (FileNotFoundException)
-                {
-                }
-            }
-
-            var storageFile = await fileToCopy.StorageFile.CopyAsync(StorageFolder, desiredNewName: newName, option: overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            return new WindowsStorageFile(storageFile);
-        }
-
-        /// <inheritdoc/>
-        public Task<IChildFile> MoveFromAsync(IChildFile fileToMove, IModifiableFolder source, bool overwrite, CancellationToken cancellationToken, MoveFromDelegate fallback)
-        {
-            // For code deduplication in this implementation,
-            // route to the overload with rename support
-            // while using the given non-rename overload as fallback.
-            // This also discards the filled newName param in the fallback, which is originally passed into the newName param in the following method call:
-            return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken, (modifiableFolder, file, source, overwrite, _, cancellationToken) => fallback(modifiableFolder, file, source, overwrite, cancellationToken));
-        }
-
-        /// <inheritdoc/>
-        public Task<IChildFile> MoveFromAsync(IChildFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken, MoveRenamedFromDelegate fallback)
-        {
-            if (fileToMove is SystemFile systemFile)
-                return MoveFromAsync(systemFile, source, overwrite, newName, cancellationToken);
-
-            if (fileToMove is WindowsStorageFile windowsStorageFile)
-                return MoveFromAsync(windowsStorageFile, source, overwrite, newName, cancellationToken);
-
-            return fallback(this, fileToMove, source, overwrite, newName, cancellationToken);
-        }
-
-        /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, CancellationToken, MoveFromDelegate)"/>
-        public Task<IChildFile> MoveFromAsync(SystemFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
-        {
-            // For code deduplication in this implementation,
-            // route to the overload with rename support
-            return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken);
-        }
-
-        /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, string, CancellationToken, MoveRenamedFromDelegate)"/>
-        public async Task<IChildFile> MoveFromAsync(SystemFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Will throw normally if we haven't been granted access to the file.
-            var storageFile = await StorageFile.GetFileFromPathAsync(fileToMove.Path);
-            var file = new WindowsStorageFile(storageFile);
-
-            return await MoveFromAsync(file, source, overwrite, newName, cancellationToken);
-        }
-
-        /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, CancellationToken, MoveFromDelegate)"/>
-        public Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite = false, CancellationToken cancellationToken = default)
-        {
-            // For code deduplication in this implementation,
-            // route to the overload with rename support
-            return MoveFromAsync(fileToMove, source, overwrite, newName: fileToMove.Name, cancellationToken);
-        }
-
-        /// <inheritdoc cref="MoveFromAsync(IChildFile, IModifiableFolder, bool, string, CancellationToken, MoveRenamedFromDelegate)"/>
-        public async Task<IChildFile> MoveFromAsync(WindowsStorageFile fileToMove, IModifiableFolder source, bool overwrite, string newName, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (!overwrite)
-            {
-                try
-                {
-                    var existingItem = await GetFirstByNameAsync(newName, cancellationToken);
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    if (existingItem is IChildFile childFile)
-                        throw new FileAlreadyExistsException(childFile.Name);
-                }
-                catch (FileNotFoundException)
-                {
-                }
-            }
-
-            await fileToMove.StorageFile.MoveAsync(StorageFolder, newName, overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
-            return fileToMove;
-        }
-
-        /// <inheritdoc/>
-        public async Task<IChildFile> CreateFileAsync(string name, bool overwrite = false, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var storageFile = await StorageFolder.CreateFileAsync(name, overwrite ? CreationCollisionOption.ReplaceExisting : CreationCollisionOption.OpenIfExists);
-
-            return new WindowsStorageFile(storageFile);
-        }
-
-        /// <inheritdoc/>
-        public async Task<IChildFolder> CreateFolderAsync(string name, bool overwrite = false, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var storageFolder = await StorageFolder.CreateFolderAsync(name, overwrite ? CreationCollisionOption.ReplaceExisting : CreationCollisionOption.OpenIfExists);
-
-            return new WindowsStorageFolder(storageFolder);
-        }
-
-        /// <inheritdoc/>
-        public async Task DeleteAsync(IStorableChild item, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var parent = await item.GetParentAsync(cancellationToken);
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (parent is null || parent.Id != Id)
-                throw new FileNotFoundException("The provided item was not found in the folder");
-
-            if (item is WindowsStorageFile file)
-                await file.StorageFile.DeleteAsync(StorageDeleteOption.PermanentDelete).AsTask();
-
-            if (item is WindowsStorageFolder folder)
-                await folder.StorageFolder.DeleteAsync(StorageDeleteOption.PermanentDelete).AsTask();
-        }
-
-        /// <inheritdoc/>
-        public virtual async Task<IFolderWatcher> GetFolderWatcherAsync(CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (StorageFolder is IStorageFolderQueryOperations folder)
-            {
-                var knownItems = await folder.GetItemsAsync(startIndex: 0, maxItemsToRetrieve: uint.MaxValue);
+                var existingItem = await GetFirstByNameAsync(newName, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
-                return new WindowsStorageFolderWatcher(folder, knownItems);
-            }
 
-            throw new NotSupportedException($"{nameof(GetFolderWatcherAsync)} is only supported when the provided {nameof(IStorageFile)} implementation also implements {nameof(IStorageFolderQueryOperations)}.");
+                if (existingItem is IChildFile childFile)
+                    throw new FileAlreadyExistsException(childFile.Name);
+            }
+            catch (FileNotFoundException)
+            {
+            }
         }
+
+        await fileToMove.StorageFile.MoveAsync(StorageFolder, newName, overwrite ? NameCollisionOption.ReplaceExisting : NameCollisionOption.FailIfExists);
+        return fileToMove;
+    }
+
+    /// <inheritdoc/>
+    public async Task<IChildFile> CreateFileAsync(string name, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var storageFile = await StorageFolder.CreateFileAsync(name, overwrite ? CreationCollisionOption.ReplaceExisting : CreationCollisionOption.OpenIfExists);
+
+        return new WindowsStorageFile(storageFile);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IChildFolder> CreateFolderAsync(string name, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var storageFolder = await StorageFolder.CreateFolderAsync(name, overwrite ? CreationCollisionOption.ReplaceExisting : CreationCollisionOption.OpenIfExists);
+
+        return new WindowsStorageFolder(storageFolder);
+    }
+
+    /// <inheritdoc/>
+    public async Task DeleteAsync(IStorableChild item, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var parent = await item.GetParentAsync(cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (parent is null || parent.Id != Id)
+            throw new FileNotFoundException("The provided item was not found in the folder");
+
+        if (item is WindowsStorageFile file)
+            await file.StorageFile.DeleteAsync(StorageDeleteOption.PermanentDelete).AsTask();
+
+        if (item is WindowsStorageFolder folder)
+            await folder.StorageFolder.DeleteAsync(StorageDeleteOption.PermanentDelete).AsTask();
+    }
+
+    /// <inheritdoc/>
+    public virtual async Task<IFolderWatcher> GetFolderWatcherAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (StorageFolder is IStorageFolderQueryOperations folder)
+        {
+            var knownItems = await folder.GetItemsAsync(startIndex: 0, maxItemsToRetrieve: uint.MaxValue);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new WindowsStorageFolderWatcher(folder, knownItems);
+        }
+
+        throw new NotSupportedException($"{nameof(GetFolderWatcherAsync)} is only supported when the provided {nameof(IStorageFile)} implementation also implements {nameof(IStorageFolderQueryOperations)}.");
     }
 }

@@ -14,6 +14,8 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using OwlCore.Diagnostics;
+using System.IO;
 
 namespace OwlCore.Storage.Uwp.Tests
 {
@@ -30,6 +32,13 @@ namespace OwlCore.Storage.Uwp.Tests
         {
             this.InitializeComponent();
             this.Suspending += OnSuspending;
+
+            var logPath = Path.Combine(Windows.Storage.ApplicationData.Current.TemporaryFolder.Path, "watcher-test.log");
+            Logger.MessageReceived += (sender, args) =>
+            {
+                try { File.AppendAllText(logPath, $"{args.Level} {args.CallerMemberName}: {args.Message}\n"); }
+                catch { }
+            };
         }
 
         /// <summary>
