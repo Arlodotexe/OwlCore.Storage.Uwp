@@ -1,4 +1,3 @@
-﻿
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OwlCore.Storage.CommonTests;
 using OwlCore.Storage.Memory;
@@ -19,6 +18,11 @@ namespace OwlCore.Storage.Uwp.Tests
 
             return await folder.CreateCopyOfAsync(randomDataFile, overwrite: true);
         }
+
+        // UWP doesn't support setting file timestamps - they're read-only
+        public override Task<IFile?> CreateFileWithCreatedAtAsync(DateTime createdAt) => Task.FromResult<IFile?>(null);
+        public override Task<IFile?> CreateFileWithLastModifiedAtAsync(DateTime lastModifiedAt) => Task.FromResult<IFile?>(null);
+        public override Task<IFile?> CreateFileWithLastAccessedAtAsync(DateTime lastAccessedAt) => Task.FromResult<IFile?>(null);
 
         async Task<MemoryFile> CreateFileWithRandomDataAsync()
         {
